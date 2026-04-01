@@ -1,5 +1,5 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 const DEFAULT_WINDOW_START = 9;
@@ -27,17 +27,35 @@ function randomHourInWindow(start: number, end: number): { hour: number; minute:
   };
 }
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// expo-notifications crashes on import in Expo Go since SDK 53.
+// We lazy-load it so the app still works in Expo Go (without notifications).
+function isExpoGo(): boolean {
+  return Constants.appOwnership === 'expo';
+}
+
+async function getNotificationsModule() {
+  if (isExpoGo()) return null;
+  try {
+    return await import('expo-notifications');
+  } catch {
+    return null;
+  }
+}
 
 export async function setupNotifications(): Promise<boolean> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return false;
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -66,6 +84,9 @@ export async function scheduleNextNotification(
   windowStart: number = DEFAULT_WINDOW_START,
   windowEnd: number = DEFAULT_WINDOW_END
 ): Promise<void> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   const now = new Date();
@@ -74,12 +95,11 @@ export async function scheduleNextNotification(
   const scheduledDate = new Date(now);
   scheduledDate.setHours(hour, minute, 0, 0);
 
-  // If the time has already passed today, schedule for tomorrow
   if (scheduledDate <= now) {
     scheduledDate.setDate(scheduledDate.getDate() + 1);
   }
 
-  const identifier = await Notifications.scheduleNotificationAsync({
+  await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Hestia',
       body: pickRandomMessage(),
@@ -91,13 +111,10 @@ export async function scheduleNextNotification(
     },
   });
 
-  // Save next notification time in DB
   await db.runAsync(
     "INSERT OR REPLACE INTO app_state (key, value) VALUES ('next_notification', ?)",
     scheduledDate.toISOString()
   );
-
-  return;
 }
 
 export async function getNotificationSettings(
