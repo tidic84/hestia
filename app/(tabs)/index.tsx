@@ -79,25 +79,33 @@ export default function CaptureScreen() {
   const handleConfirm = async () => {
     if (!capturedPicture) return;
 
-    const challengeId = challenge?.completed === 0 ? challenge.id : null;
-    await savePhoto(db, capturedPicture, challengeId);
+    try {
+      const challengeId = challenge?.completed === 0 ? challenge.id : null;
+      await savePhoto(db, capturedPicture, challengeId);
 
-    const hour = new Date().getHours();
-    const ctx = await buildGamificationContext(db, hour);
-    const newBadges = await checkAndUnlockBadges(db, ctx);
+      const hour = new Date().getHours();
+      const ctx = await buildGamificationContext(db, hour);
+      const newBadges = await checkAndUnlockBadges(db, ctx);
 
-    setCapturedPicture(null);
-    showTabBar();
-    setScreenState('today');
-    await refreshAll();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setCapturedPicture(null);
+      showTabBar();
+      setScreenState('today');
+      await refreshAll();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    if (newBadges.length > 0) {
+      if (newBadges.length > 0) {
+        showAlert({
+          title: 'Nouveau badge !',
+          message: newBadges.map((b) => `${b.name} — ${b.description}`).join('\n'),
+          icon: 'trophy',
+          iconColor: colors.accent,
+        });
+      }
+    } catch {
       showAlert({
-        title: 'Nouveau badge !',
-        message: newBadges.map((b) => `${b.name} — ${b.description}`).join('\n'),
-        icon: 'trophy',
-        iconColor: colors.accent,
+        title: 'Erreur',
+        message: "La photo n'a pas pu etre sauvegardee. Reessaye.",
+        icon: 'alert-circle-outline',
       });
     }
   };

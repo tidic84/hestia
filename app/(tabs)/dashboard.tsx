@@ -73,6 +73,16 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        <TouchableOpacity
+          style={styles.recapButton}
+          onPress={() => router.push('/recap')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="stats-chart" size={20} color={colors.primary} />
+          <Text style={styles.recapText}>Voir mon recap</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </TouchableOpacity>
+
         <Text style={styles.sectionTitle}>Badges</Text>
         <View style={styles.badgeGrid}>
           {badges.map((badge) => (
@@ -162,6 +172,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.text,
     letterSpacing: 0.3,
+  },
+  recapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  recapText: {
+    flex: 1,
+    fontSize: fontSize.md,
+    color: colors.text,
+    fontWeight: '500',
   },
   badgeGrid: {
     flexDirection: 'row',

@@ -16,20 +16,25 @@ export function useBadges() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const unlocked = await getUnlockedBadges(db);
-    const unlockedMap = new Map(unlocked.map((b) => [b.id, b]));
+    try {
+      const unlocked = await getUnlockedBadges(db);
+      const unlockedMap = new Map(unlocked.map((b) => [b.id, b]));
 
-    const all = BADGE_DEFINITIONS.map((def) => {
-      const badge = unlockedMap.get(def.id);
-      return {
-        ...def,
-        unlocked: !!badge,
-        unlocked_at: badge?.unlocked_at ?? null,
-      };
-    });
+      const all = BADGE_DEFINITIONS.map((def) => {
+        const badge = unlockedMap.get(def.id);
+        return {
+          ...def,
+          unlocked: !!badge,
+          unlocked_at: badge?.unlocked_at ?? null,
+        };
+      });
 
-    setBadges(all);
-    setLoading(false);
+      setBadges(all);
+    } catch {
+      // Keep previous values on error
+    } finally {
+      setLoading(false);
+    }
   }, [db]);
 
   useEffect(() => {

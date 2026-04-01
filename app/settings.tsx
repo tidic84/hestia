@@ -9,6 +9,7 @@ import { useDatabase } from '../src/hooks/useDatabase';
 import {
   getNotificationSettings,
   saveNotificationWindow,
+  scheduleNextNotification,
 } from '../src/services/notification.service';
 import { colors, fontSize, spacing, borderRadius } from '../src/constants/theme';
 
@@ -23,7 +24,7 @@ export default function SettingsScreen() {
       setWindowStart(settings.windowStart);
       setWindowEnd(settings.windowEnd);
       setNextNotification(settings.nextNotification);
-    });
+    }).catch(() => {});
   }, [db]);
 
   const adjustHour = async (type: 'start' | 'end', delta: number) => {
@@ -40,9 +41,14 @@ export default function SettingsScreen() {
 
     setWindowStart(newStart);
     setWindowEnd(newEnd);
-    await saveNotificationWindow(db, newStart, newEnd);
-    const settings = await getNotificationSettings(db);
-    setNextNotification(settings.nextNotification);
+    try {
+      await saveNotificationWindow(db, newStart, newEnd);
+      await scheduleNextNotification(db, newStart, newEnd);
+      const settings = await getNotificationSettings(db);
+      setNextNotification(settings.nextNotification);
+    } catch {
+      // Settings save failed — UI already updated, will retry on next adjustment
+    }
   };
 
   return (

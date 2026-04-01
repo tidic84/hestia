@@ -49,9 +49,13 @@ export async function savePhoto(
   // Delete existing photo for today if any
   const existing = await getPhotoByDate(db, today);
   if (existing) {
-    const existingFile = new File(Paths.document, existing.file_path);
-    if (existingFile.exists) {
-      existingFile.delete();
+    try {
+      const existingFile = new File(Paths.document, existing.file_path);
+      if (existingFile.exists) {
+        existingFile.delete();
+      }
+    } catch {
+      // Old file cleanup failed — not critical, continue
     }
     await deletePhoto(db, today);
   }

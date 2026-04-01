@@ -10,13 +10,18 @@ export function useStreak() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const [current, longest] = await Promise.all([
-      getCurrentStreak(db),
-      getLongestStreak(db),
-    ]);
-    setCurrentStreak(current);
-    setLongestStreak(longest);
-    setLoading(false);
+    try {
+      const [current, longest] = await Promise.all([
+        getCurrentStreak(db),
+        getLongestStreak(db),
+      ]);
+      setCurrentStreak(current);
+      setLongestStreak(longest);
+    } catch {
+      // Keep previous values on error
+    } finally {
+      setLoading(false);
+    }
   }, [db]);
 
   useEffect(() => {

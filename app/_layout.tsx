@@ -13,16 +13,18 @@ export default function RootLayout() {
   const [db, setDb] = useState<SQLiteDatabase | null>(null);
 
   useEffect(() => {
-    getDatabase().then(setDb);
+    getDatabase().then(setDb).catch(() => {
+      // DB init failed — app cannot function, stay on loading screen
+    });
   }, []);
 
   useEffect(() => {
     if (!db) return;
     setupNotifications().then((granted) => {
       if (granted) {
-        scheduleNextNotification(db);
+        scheduleNextNotification(db).catch(() => {});
       }
-    });
+    }).catch(() => {});
   }, [db]);
 
   if (!db) {

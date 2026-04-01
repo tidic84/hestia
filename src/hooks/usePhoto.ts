@@ -11,10 +11,15 @@ export function useTodayPhoto() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const result = await getPhotoByDate(db, today);
-    setPhoto(result);
-    setLoading(false);
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const result = await getPhotoByDate(db, today);
+      setPhoto(result);
+    } catch {
+      setPhoto(null);
+    } finally {
+      setLoading(false);
+    }
   }, [db]);
 
   useEffect(() => {

@@ -51,7 +51,14 @@
           "locationWhenInUsePermission": "Hestia utilise votre position pour géolocaliser vos photos sur la carte."
         }
       ],
-      "expo-media-library"
+      "expo-media-library",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#C27D65"
+        }
+      ]
     ]
   }
 }

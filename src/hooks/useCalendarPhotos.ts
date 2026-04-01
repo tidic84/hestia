@@ -10,13 +10,18 @@ export function useCalendarPhotos(year: number, month: number) {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const results = await getPhotosForMonth(db, year, month);
-    const map = new Map<string, Photo>();
-    for (const photo of results) {
-      map.set(photo.date, photo);
+    try {
+      const results = await getPhotosForMonth(db, year, month);
+      const map = new Map<string, Photo>();
+      for (const photo of results) {
+        map.set(photo.date, photo);
+      }
+      setPhotos(map);
+    } catch {
+      setPhotos(new Map());
+    } finally {
+      setLoading(false);
     }
-    setPhotos(map);
-    setLoading(false);
   }, [db, year, month]);
 
   useEffect(() => {

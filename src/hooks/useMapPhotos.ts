@@ -10,9 +10,14 @@ export function useMapPhotos() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const results = await getGeolocatedPhotos(db);
-    setPhotos(results);
-    setLoading(false);
+    try {
+      const results = await getGeolocatedPhotos(db);
+      setPhotos(results);
+    } catch {
+      setPhotos([]);
+    } finally {
+      setLoading(false);
+    }
   }, [db]);
 
   useEffect(() => {
