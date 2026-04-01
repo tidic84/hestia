@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "Hestia",
+    "slug": "hestia",
+    "version": "1.0.0",
+    "scheme": "hestia",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1c1816"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hestia.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Hestia a besoin de votre caméra pour prendre la photo du jour.",
+        "NSLocationWhenInUseUsageDescription": "Hestia utilise votre position pour géolocaliser vos photos sur la carte.",
+        "NSPhotoLibraryUsageDescription": "Hestia peut sauvegarder votre récap vidéo dans votre galerie."
+      }
+    },
+    "android": {
+      "package": "com.hestia.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1c1816"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Hestia a besoin de votre caméra pour prendre la photo du jour."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Hestia utilise votre position pour géolocaliser vos photos sur la carte."
+        }
+      ],
+      "expo-media-library"
+    ]
+  }
+}
