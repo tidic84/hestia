@@ -3,45 +3,16 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import MapView, { Marker } from 'react-native-maps';
-import ViewShot from 'react-native-view-shot';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import PhotoMarker from '../../src/components/PhotoMarker';
 import { useMapPhotos } from '../../src/hooks/useMapPhotos';
 import { colors, fontSize, spacing } from '../../src/constants/theme';
-import type { Photo } from '../../src/types';
-
-// Rendu off-screen pour capturer le marqueur en bitmap
-function OffscreenCapture({
-  photo,
-  onCapture,
-}: {
-  photo: Photo;
-  onCapture: (uri: string) => void;
-}) {
-  const shotRef = useRef<ViewShot>(null);
-
-  const onImageLoad = useCallback(() => {
-    setTimeout(() => {
-      shotRef.current?.capture?.().then(onCapture);
-    }, 100);
-  }, [onCapture]);
-
-  return (
-    <ViewShot
-      ref={shotRef}
-      options={{ format: 'png', quality: 1 }}
-      style={styles.offscreen}
-    >
-      <PhotoMarker photo={photo} onLoad={onImageLoad} />
-    </ViewShot>
-  );
-}
 
 export default function MapScreen() {
   const { photos, loading, refresh } = useMapPhotos();
   const mapRef = useRef<MapView>(null);
-  const [capturedUris, setCapturedUris] = useState<Record<string, string>>({});
+  const [mapReady, setMapReady] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -49,25 +20,25 @@ export default function MapScreen() {
     }, [refresh])
   );
 
-  const onCapture = useCallback((photoId: string, uri: string) => {
-    setCapturedUris((prev) => ({ ...prev, [photoId]: uri }));
-  }, []);
-
   const goToMyLocation = async () => {
-    const { status } = await Location.getForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
-      if (newStatus !== 'granted') return;
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+        if (newStatus !== 'granted') return;
+      }
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      mapRef.current?.animateToRegion({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }, 500);
+    } catch {
+      // Location unavailable
     }
-    const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-    mapRef.current?.animateToRegion({
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    }, 500);
   };
 
   if (!loading && photos.length === 0) {
@@ -97,17 +68,6 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Vues off-screen pour capture bitmap — invisibles, hors écran */}
-      <View style={styles.offscreenContainer}>
-        {photos.map((photo) => (
-          <OffscreenCapture
-            key={photo.id}
-            photo={photo}
-            onCapture={(uri) => onCapture(photo.id, uri)}
-          />
-        ))}
-      </View>
-
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -119,21 +79,20 @@ export default function MapScreen() {
         showsTraffic={false}
         showsIndoors={false}
         customMapStyle={mapDarkStyle}
+        onMapReady={() => setMapReady(true)}
       >
-        {photos
-          .filter((photo) => capturedUris[photo.id])
-          .map((photo) => (
-            <Marker
-              key={photo.id}
-              coordinate={{
-                latitude: photo.latitude!,
-                longitude: photo.longitude!,
-              }}
-              onPress={() => router.push(`/photo/${photo.date}`)}
-              tracksViewChanges={false}
-              image={{ uri: capturedUris[photo.id] }}
-            />
-          ))}
+        {mapReady && photos.map((photo) => (
+          <Marker
+            key={photo.id}
+            coordinate={{
+              latitude: photo.latitude!,
+              longitude: photo.longitude!,
+            }}
+            onPress={() => router.push(`/photo/${photo.date}`)}
+          >
+            <PhotoMarker photo={photo} />
+          </Marker>
+        ))}
       </MapView>
 
       <TouchableOpacity
@@ -167,15 +126,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  offscreenContainer: {
-    position: 'absolute',
-    top: -9999,
-    left: -9999,
-    opacity: 0,
-  },
-  offscreen: {
-    backgroundColor: 'transparent',
   },
   locateButton: {
     position: 'absolute',
