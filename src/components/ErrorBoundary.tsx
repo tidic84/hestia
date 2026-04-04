@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { reportError } from '../services/error.service';
 import { colors, fontSize, spacing, borderRadius } from '../constants/theme';
 
 type Props = {
@@ -17,6 +18,10 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
   static getDerivedStateFromError(): State {
     return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    reportError(error);
   }
 
   render() {

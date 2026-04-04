@@ -2,27 +2,20 @@ import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import * as Sentry from '@sentry/react-native';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { DatabaseContext } from '../src/hooks/useDatabase';
 import { TabBarVisibilityProvider } from '../src/hooks/useTabBarVisibility';
 import { getDatabase } from '../src/db/client';
 import { setupNotifications, scheduleNextNotification } from '../src/services/notification.service';
+import { reportError } from '../src/services/error.service';
 import { colors } from '../src/constants/theme';
 
-Sentry.init({
-  dsn: 'https://630ceea3a478ad67e937ddc6b0dc9698@o4511158951346176.ingest.de.sentry.io/4511158953246800',
-  sendDefaultPii: false,
-  tracesSampleRate: 0.2,
-  enabled: !__DEV__,
-});
-
-function RootLayout() {
+export default function RootLayout() {
   const [db, setDb] = useState<SQLiteDatabase | null>(null);
 
   useEffect(() => {
-    getDatabase().then(setDb).catch(() => {
-      // DB init failed — app cannot function, stay on loading screen
+    getDatabase().then(setDb).catch((e) => {
+      reportError(e);
     });
   }, []);
 
@@ -72,8 +65,6 @@ function RootLayout() {
     </DatabaseContext.Provider>
   );
 }
-
-export default Sentry.wrap(RootLayout);
 
 const styles = StyleSheet.create({
   loading: {
