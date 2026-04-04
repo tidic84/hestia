@@ -11,7 +11,7 @@ import { setupNotifications, scheduleNextNotification } from '../src/services/no
 import { colors } from '../src/constants/theme';
 
 Sentry.init({
-  dsn: '__SENTRY_DSN__',
+  dsn: 'https://630ceea3a478ad67e937ddc6b0dc9698@o4511158951346176.ingest.de.sentry.io/4511158953246800',
   sendDefaultPii: false,
   tracesSampleRate: 0.2,
   enabled: !__DEV__,
