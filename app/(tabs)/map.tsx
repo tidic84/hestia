@@ -1,20 +1,46 @@
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import PhotoMarker from '../../src/components/PhotoMarker';
 import ErrorBoundary from '../../src/components/ErrorBoundary';
+import PhotoMarker from '../../src/components/PhotoMarker';
 import { useMapPhotos } from '../../src/hooks/useMapPhotos';
 import { colors, fontSize, spacing } from '../../src/constants/theme';
+import type { Photo } from '../../src/types';
 
 export default function MapScreenWrapper() {
   return (
     <ErrorBoundary fallbackMessage="La carte n'a pas pu se charger. Verifie ta connexion ou reessaye.">
       <MapScreen />
     </ErrorBoundary>
+  );
+}
+
+function TrackedMarker({ photo }: { photo: Photo }) {
+  const [tracked, setTracked] = useState(true);
+
+  return (
+    <Marker
+      coordinate={{
+        latitude: photo.latitude!,
+        longitude: photo.longitude!,
+      }}
+      onPress={() => router.push(`/photo/${photo.date}`)}
+      tracksViewChanges={tracked}
+    >
+      <PhotoMarker
+        photo={photo}
+        onLoad={() => {
+          // Once the image loads, stop tracking to improve perf
+          if (Platform.OS === 'android') {
+            setTimeout(() => setTracked(false), 500);
+          }
+        }}
+      />
+    </Marker>
   );
 }
 
@@ -91,16 +117,7 @@ function MapScreen() {
         onMapReady={() => setMapReady(true)}
       >
         {mapReady && photos.map((photo) => (
-          <Marker
-            key={photo.id}
-            coordinate={{
-              latitude: photo.latitude!,
-              longitude: photo.longitude!,
-            }}
-            onPress={() => router.push(`/photo/${photo.date}`)}
-          >
-            <PhotoMarker photo={photo} />
-          </Marker>
+          <TrackedMarker key={photo.id} photo={photo} />
         ))}
       </MapView>
 

@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useDatabase } from '../src/hooks/useDatabase';
+import { useAlert } from '../src/hooks/useAlert';
+import CustomAlert from '../src/components/CustomAlert';
 import {
   getNotificationSettings,
   saveNotificationWindow,
   scheduleNextNotification,
 } from '../src/services/notification.service';
+import { exportData } from '../src/services/backup.service';
 import { colors, fontSize, spacing, borderRadius } from '../src/constants/theme';
 
 export default function SettingsScreen() {
@@ -18,6 +21,8 @@ export default function SettingsScreen() {
   const [windowStart, setWindowStart] = useState(9);
   const [windowEnd, setWindowEnd] = useState(21);
   const [nextNotification, setNextNotification] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const { alertProps, showAlert } = useAlert();
 
   useEffect(() => {
     getNotificationSettings(db).then((settings) => {
@@ -99,7 +104,52 @@ export default function SettingsScreen() {
             </Text>
           )}
         </View>
+
+        <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Donnees</Text>
+
+        <View style={styles.card}>
+          <Text style={styles.label}>Exporter mes donnees</Text>
+          <Text style={styles.description}>
+            Exporte toutes tes photos et statistiques dans un fichier de sauvegarde.
+          </Text>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={async () => {
+              setExporting(true);
+              try {
+                await exportData(db);
+                showAlert({
+                  title: 'Export termine',
+                  message: 'Tes donnees ont ete exportees.',
+                  icon: 'checkmark-circle',
+                  iconColor: colors.success,
+                });
+              } catch {
+                showAlert({
+                  title: 'Erreur',
+                  message: "L'export a echoue. Reessaye.",
+                  icon: 'alert-circle-outline',
+                });
+              } finally {
+                setExporting(false);
+              }
+            }}
+            disabled={exporting}
+            activeOpacity={0.7}
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Exporter</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
+
+      <CustomAlert {...alertProps} />
     </SafeAreaView>
   );
 }
@@ -187,5 +237,19 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginTop: spacing.sm,
     textTransform: 'capitalize',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceLight,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: borderRadius.md,
+  },
+  actionText: {
+    fontSize: fontSize.md,
+    color: colors.primary,
+    fontWeight: '600',
   },
 });
