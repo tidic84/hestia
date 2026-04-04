@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { DatabaseContext } from '../src/hooks/useDatabase';
 import { TabBarVisibilityProvider } from '../src/hooks/useTabBarVisibility';
@@ -9,7 +10,14 @@ import { getDatabase } from '../src/db/client';
 import { setupNotifications, scheduleNextNotification } from '../src/services/notification.service';
 import { colors } from '../src/constants/theme';
 
-export default function RootLayout() {
+Sentry.init({
+  dsn: '__SENTRY_DSN__',
+  sendDefaultPii: false,
+  tracesSampleRate: 0.2,
+  enabled: !__DEV__,
+});
+
+function RootLayout() {
   const [db, setDb] = useState<SQLiteDatabase | null>(null);
 
   useEffect(() => {
@@ -64,6 +72,8 @@ export default function RootLayout() {
     </DatabaseContext.Provider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
 
 const styles = StyleSheet.create({
   loading: {

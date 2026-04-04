@@ -28,6 +28,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1c1816"
       },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyD68pakgchFuf6ggQlC0tfUotRj1LMeMNQ"
+        }
+      },
       "edgeToEdgeEnabled": true,
       "permissions": [
         "CAMERA",
@@ -68,7 +73,8 @@
           "icon": "./assets/icon.png",
           "color": "#C27D65"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "extra": {
       "router": {},
