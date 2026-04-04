@@ -3,8 +3,8 @@ import { getPhotoUri } from '../services/photo.service';
 import { colors } from '../constants/theme';
 import type { Photo } from '../types';
 
-export const MARKER_SIZE = 56;
-const BORDER_WIDTH = 4;
+export const MARKER_SIZE = 46;
+const BORDER_WIDTH = 3;
 const INNER_SIZE = MARKER_SIZE - BORDER_WIDTH * 2;
 
 type Props = {

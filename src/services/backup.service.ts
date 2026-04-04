@@ -5,10 +5,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Photo, Badge, Challenge, AppState } from '../types';
 
+interface PhotoWithData extends Photo {
+  imageBase64?: string;
+}
+
 interface BackupData {
   version: 1;
   exportedAt: string;
-  photos: Photo[];
+  photos: PhotoWithData[];
   badges: Badge[];
   challenges: Challenge[];
   appState: AppState[];
@@ -35,10 +39,23 @@ export async function exportData(db: SQLiteDatabase): Promise<void> {
   const challenges = await db.getAllAsync<Challenge>('SELECT * FROM challenges');
   const appState = await db.getAllAsync<AppState>('SELECT * FROM app_state');
 
+  // Embed photo files as base64
+  const photosWithData: PhotoWithData[] = photos.map((photo) => {
+    try {
+      const file = new File(Paths.document, photo.file_path);
+      if (file.exists) {
+        return { ...photo, imageBase64: file.base64Sync() };
+      }
+    } catch {
+      // Photo file missing — export metadata only
+    }
+    return photo;
+  });
+
   const backup: BackupData = {
     version: 1,
     exportedAt: new Date().toISOString(),
-    photos,
+    photos: photosWithData,
     badges,
     challenges,
     appState,
@@ -105,13 +122,22 @@ export async function pickAndImportData(
   let photosImported = 0;
   let badgesImported = 0;
 
-  // Import photos (DB records only — photos files need to be on device)
+  // Import photos (DB records + restore photo files from base64)
+  const photosDir = new Directory(Paths.document, 'photos');
+  if (!photosDir.exists) photosDir.create();
+
   for (const photo of backup.photos) {
     const existing = await db.getFirstAsync<{ id: string }>(
       'SELECT id FROM photos WHERE date = ?',
       photo.date
     );
     if (!existing) {
+      // Restore photo file if base64 data is included
+      if (photo.imageBase64) {
+        const destFile = new File(Paths.document, photo.file_path);
+        destFile.write(photo.imageBase64, { encoding: 'base64' });
+      }
+
       await db.runAsync(
         `INSERT INTO photos (id, date, file_path, width, height, latitude, longitude, challenge_id, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
