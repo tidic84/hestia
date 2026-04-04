@@ -1,10 +1,9 @@
 import { Paths, Directory, File } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import * as Crypto from 'expo-crypto';
+import * as MediaLibrary from 'expo-media-library';
+import * as DocumentPicker from 'expo-document-picker';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Photo, Badge, Challenge, AppState } from '../types';
-
-const BACKUP_DIR = 'backups';
 
 interface BackupData {
   version: 1;
@@ -16,12 +15,20 @@ interface BackupData {
 }
 
 function getBackupDir(): Directory {
-  const dir = new Directory(Paths.cache, BACKUP_DIR);
+  const dir = new Directory(Paths.cache, 'hestia-backup');
   if (!dir.exists) dir.create();
   return dir;
 }
 
+function cleanBackupDir(): void {
+  const dir = new Directory(Paths.cache, 'hestia-backup');
+  if (dir.exists) dir.delete();
+}
+
 export async function exportData(db: SQLiteDatabase): Promise<void> {
+  cleanBackupDir();
+  const backupDir = getBackupDir();
+
   // Gather all data
   const photos = await db.getAllAsync<Photo>('SELECT * FROM photos ORDER BY date ASC');
   const badges = await db.getAllAsync<Badge>('SELECT * FROM badges');
@@ -38,23 +45,10 @@ export async function exportData(db: SQLiteDatabase): Promise<void> {
   };
 
   // Write JSON manifest
-  const backupDir = getBackupDir();
   const manifestFile = new File(backupDir, 'hestia-backup.json');
   manifestFile.write(JSON.stringify(backup, null, 2));
 
-  // Copy photos to backup dir
-  const photosBackupDir = new Directory(backupDir, 'photos');
-  if (!photosBackupDir.exists) photosBackupDir.create();
-
-  for (const photo of photos) {
-    const sourceFile = new File(Paths.document, photo.file_path);
-    if (sourceFile.exists) {
-      const destFile = new File(photosBackupDir, photo.file_path.replace('photos/', ''));
-      sourceFile.copy(destFile);
-    }
-  }
-
-  // Share the manifest (user can find photos in backup dir)
+  // Share the manifest
   const available = await Sharing.isAvailableAsync();
   if (available) {
     await Sharing.shareAsync(manifestFile.uri, {
@@ -64,11 +58,43 @@ export async function exportData(db: SQLiteDatabase): Promise<void> {
   }
 }
 
-export async function importData(
-  db: SQLiteDatabase,
-  jsonUri: string
-): Promise<{ photosImported: number; badgesImported: number }> {
-  const file = new File(jsonUri);
+export async function exportPhotosToGallery(db: SQLiteDatabase): Promise<number> {
+  const { status } = await MediaLibrary.requestPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error('Permission galerie refusee');
+  }
+
+  const photos = await db.getAllAsync<Photo>('SELECT * FROM photos ORDER BY date ASC');
+  let saved = 0;
+
+  for (const photo of photos) {
+    try {
+      const file = new File(Paths.document, photo.file_path);
+      if (file.exists) {
+        await MediaLibrary.saveToLibraryAsync(file.uri);
+        saved++;
+      }
+    } catch {
+      // Skip individual photo errors
+    }
+  }
+
+  return saved;
+}
+
+export async function pickAndImportData(
+  db: SQLiteDatabase
+): Promise<{ photosImported: number; badgesImported: number } | null> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: 'application/json',
+    copyToCacheDirectory: true,
+  });
+
+  if (result.canceled || result.assets.length === 0) {
+    return null;
+  }
+
+  const file = new File(result.assets[0].uri);
   const content = await file.text();
   const backup: BackupData = JSON.parse(content);
 
@@ -79,7 +105,7 @@ export async function importData(
   let photosImported = 0;
   let badgesImported = 0;
 
-  // Import photos
+  // Import photos (DB records only — photos files need to be on device)
   for (const photo of backup.photos) {
     const existing = await db.getFirstAsync<{ id: string }>(
       'SELECT id FROM photos WHERE date = ?',
@@ -98,11 +124,17 @@ export async function importData(
 
   // Import badges
   for (const badge of backup.badges) {
-    await db.runAsync(
-      'INSERT OR IGNORE INTO badges (id, unlocked_at) VALUES (?, ?)',
-      badge.id, badge.unlocked_at
+    const existing = await db.getFirstAsync<{ id: string }>(
+      'SELECT id FROM badges WHERE id = ?',
+      badge.id
     );
-    badgesImported++;
+    if (!existing) {
+      await db.runAsync(
+        'INSERT INTO badges (id, unlocked_at) VALUES (?, ?)',
+        badge.id, badge.unlocked_at
+      );
+      badgesImported++;
+    }
   }
 
   // Import challenges

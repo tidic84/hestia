@@ -13,7 +13,7 @@ import {
   saveNotificationWindow,
   scheduleNextNotification,
 } from '../src/services/notification.service';
-import { exportData } from '../src/services/backup.service';
+import { exportData, exportPhotosToGallery, pickAndImportData } from '../src/services/backup.service';
 import { colors, fontSize, spacing, borderRadius } from '../src/constants/theme';
 
 export default function SettingsScreen() {
@@ -22,6 +22,8 @@ export default function SettingsScreen() {
   const [windowEnd, setWindowEnd] = useState(21);
   const [nextNotification, setNextNotification] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportingPhotos, setExportingPhotos] = useState(false);
+  const [importing, setImporting] = useState(false);
   const { alertProps, showAlert } = useAlert();
 
   useEffect(() => {
@@ -108,9 +110,9 @@ export default function SettingsScreen() {
         <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Donnees</Text>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Exporter mes donnees</Text>
+          <Text style={styles.label}>Sauvegarder les donnees</Text>
           <Text style={styles.description}>
-            Exporte toutes tes photos et statistiques dans un fichier de sauvegarde.
+            Exporte tes statistiques, badges et defis dans un fichier JSON.
           </Text>
           <TouchableOpacity
             style={styles.actionButton}
@@ -118,12 +120,6 @@ export default function SettingsScreen() {
               setExporting(true);
               try {
                 await exportData(db);
-                showAlert({
-                  title: 'Export termine',
-                  message: 'Tes donnees ont ete exportees.',
-                  icon: 'checkmark-circle',
-                  iconColor: colors.success,
-                });
               } catch {
                 showAlert({
                   title: 'Erreur',
@@ -141,8 +137,92 @@ export default function SettingsScreen() {
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <>
-                <Ionicons name="download-outline" size={20} color={colors.primary} />
-                <Text style={styles.actionText}>Exporter</Text>
+                <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Exporter les donnees</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Text style={styles.label}>Sauvegarder les photos</Text>
+          <Text style={styles.description}>
+            Enregistre toutes tes photos dans la galerie de ton telephone.
+          </Text>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={async () => {
+              setExportingPhotos(true);
+              try {
+                const count = await exportPhotosToGallery(db);
+                showAlert({
+                  title: 'Photos exportees',
+                  message: `${count} photo${count > 1 ? 's' : ''} enregistree${count > 1 ? 's' : ''} dans ta galerie.`,
+                  icon: 'checkmark-circle',
+                  iconColor: colors.success,
+                });
+              } catch {
+                showAlert({
+                  title: 'Erreur',
+                  message: "L'export des photos a echoue. Verifie les permissions.",
+                  icon: 'alert-circle-outline',
+                });
+              } finally {
+                setExportingPhotos(false);
+              }
+            }}
+            disabled={exportingPhotos}
+            activeOpacity={0.7}
+          >
+            {exportingPhotos ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <>
+                <Ionicons name="images-outline" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Exporter les photos</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Text style={styles.label}>Restaurer une sauvegarde</Text>
+          <Text style={styles.description}>
+            Importe des donnees depuis un fichier de sauvegarde Hestia.
+          </Text>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={async () => {
+              setImporting(true);
+              try {
+                const result = await pickAndImportData(db);
+                if (result) {
+                  showAlert({
+                    title: 'Import termine',
+                    message: `${result.photosImported} photo${result.photosImported > 1 ? 's' : ''} et ${result.badgesImported} badge${result.badgesImported > 1 ? 's' : ''} importes.`,
+                    icon: 'checkmark-circle',
+                    iconColor: colors.success,
+                  });
+                }
+              } catch {
+                showAlert({
+                  title: 'Erreur',
+                  message: "Le fichier n'est pas valide ou l'import a echoue.",
+                  icon: 'alert-circle-outline',
+                });
+              } finally {
+                setImporting(false);
+              }
+            }}
+            disabled={importing}
+            activeOpacity={0.7}
+          >
+            {importing ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <>
+                <Ionicons name="push-outline" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Importer</Text>
               </>
             )}
           </TouchableOpacity>

@@ -1,15 +1,42 @@
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import MapView, { Marker } from 'react-native-maps';
+import ViewShot from 'react-native-view-shot';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import ErrorBoundary from '../../src/components/ErrorBoundary';
 import PhotoMarker from '../../src/components/PhotoMarker';
+import ErrorBoundary from '../../src/components/ErrorBoundary';
 import { useMapPhotos } from '../../src/hooks/useMapPhotos';
 import { colors, fontSize, spacing } from '../../src/constants/theme';
 import type { Photo } from '../../src/types';
+
+function OffscreenCapture({
+  photo,
+  onCapture,
+}: {
+  photo: Photo;
+  onCapture: (uri: string) => void;
+}) {
+  const shotRef = useRef<ViewShot>(null);
+
+  const onImageLoad = useCallback(() => {
+    setTimeout(() => {
+      shotRef.current?.capture?.().then(onCapture);
+    }, 100);
+  }, [onCapture]);
+
+  return (
+    <ViewShot
+      ref={shotRef}
+      options={{ format: 'png', quality: 1 }}
+      style={{ backgroundColor: 'transparent' }}
+    >
+      <PhotoMarker photo={photo} onLoad={onImageLoad} />
+    </ViewShot>
+  );
+}
 
 export default function MapScreenWrapper() {
   return (
@@ -19,41 +46,20 @@ export default function MapScreenWrapper() {
   );
 }
 
-function TrackedMarker({ photo }: { photo: Photo }) {
-  const [tracked, setTracked] = useState(true);
-
-  return (
-    <Marker
-      coordinate={{
-        latitude: photo.latitude!,
-        longitude: photo.longitude!,
-      }}
-      onPress={() => router.push(`/photo/${photo.date}`)}
-      tracksViewChanges={tracked}
-    >
-      <PhotoMarker
-        photo={photo}
-        onLoad={() => {
-          // Once the image loads, stop tracking to improve perf
-          if (Platform.OS === 'android') {
-            setTimeout(() => setTracked(false), 500);
-          }
-        }}
-      />
-    </Marker>
-  );
-}
-
 function MapScreen() {
   const { photos, loading, refresh } = useMapPhotos();
   const mapRef = useRef<MapView>(null);
-  const [mapReady, setMapReady] = useState(false);
+  const [capturedUris, setCapturedUris] = useState<Record<string, string>>({});
 
   useFocusEffect(
     useCallback(() => {
       refresh();
     }, [refresh])
   );
+
+  const onCapture = useCallback((photoId: string, uri: string) => {
+    setCapturedUris((prev) => ({ ...prev, [photoId]: uri }));
+  }, []);
 
   const goToMyLocation = async () => {
     try {
@@ -103,6 +109,17 @@ function MapScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Offscreen captures — invisible, rendered off-screen */}
+      <View style={styles.offscreenContainer}>
+        {photos.map((photo) => (
+          <OffscreenCapture
+            key={photo.id}
+            photo={photo}
+            onCapture={(uri) => onCapture(photo.id, uri)}
+          />
+        ))}
+      </View>
+
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -114,11 +131,21 @@ function MapScreen() {
         showsTraffic={false}
         showsIndoors={false}
         customMapStyle={mapDarkStyle}
-        onMapReady={() => setMapReady(true)}
       >
-        {mapReady && photos.map((photo) => (
-          <TrackedMarker key={photo.id} photo={photo} />
-        ))}
+        {photos
+          .filter((photo) => capturedUris[photo.id])
+          .map((photo) => (
+            <Marker
+              key={photo.id}
+              coordinate={{
+                latitude: photo.latitude!,
+                longitude: photo.longitude!,
+              }}
+              onPress={() => router.push(`/photo/${photo.date}`)}
+              tracksViewChanges={false}
+              image={{ uri: capturedUris[photo.id] }}
+            />
+          ))}
       </MapView>
 
       <TouchableOpacity
@@ -152,6 +179,12 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  offscreenContainer: {
+    position: 'absolute',
+    top: -9999,
+    left: -9999,
+    opacity: 0,
   },
   locateButton: {
     position: 'absolute',
